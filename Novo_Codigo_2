@@ -1,0 +1,183 @@
+import numpy
+import math
+# import networkx
+#--------------
+class Point: # cria uma classe Point para os pontos do plano para manipulação
+    def __init__(self, x, y, max_tx):
+        self.x = x
+        self.y = y
+        self.hist_de_encontro = [] # preenchida e atualizada quando os encontros acontecerem
+        self.lista_transmissao = [] # lista de transmissões
+        self.max_tx = max_tx # potencia max de transmissao
+        self.buffer = []
+        self.energia_cons = []
+
+    def dist(p1,p2): # procedimento para calcular a distância entre 2 pontos
+        return ((p1.x-p2.x)**2+(p1.y-p2.y)**2)**(0.5)
+
+    def geracao_pontos(x,y,densidade, lado):
+        qtd_pontos=numpy.random.poisson(densidade*lado**2)#
+        # Atenção ao significado -- Calculou a quantidade de pontos na área unitária
+        vetx=numpy.random.uniform(-lado,lado,qtd_pontos)# propriedade do movimento Browniano em x.
+        vety=numpy.random.uniform(-lado,lado,qtd_pontos)# propriedade do movimento Browniano em y.
+        vetpoint=[Point(x,y,None) for x,y in zip(vetx,vety)]# cria um vetor de pontos no espaço A.
+        return(vetpoint)
+
+    def __repr__(self): # cria uma função apenas para "formatar" os pontos float
+        return "p(" + "{:.4f}".format(self.x) + "," + "{:.4f}".format(self.y) + ")"
+
+    def Consumo_Tx (Ponto, Pot_out, Pot_in):
+        pass
+
+    def Consumo_Rx (Ponto):
+        pass
+
+
+
+class ENodeB(Point):
+    def __init__(self, x, y, max_tx):
+        super().__init__(x, y, max_tx)
+
+
+class UE(Point):
+    def __init__(self, x, y, max_tx):
+        super().__init__(x, y, max_tx)
+        pass
+
+class Browniano:
+     def __init__(self, ponto, tempo_de_observacao, velocidade_do_ponto):
+         self.ponto = ponto
+         self.tempo_de_observacao = tempo_de_observacao
+         self.velocidade_do_ponto = velocidade_do_ponto
+         var = tempo_de_observacao * velocidade_do_ponto
+         ponto.x = ponto.x + numpy.random.normal(0, var)  # gera o movimento Browniano em x
+         ponto.y = ponto.y + numpy.random.normal(0, var)  # gera o movimento Browniano em y
+
+
+class Levy_Walk: # movimento de Levy Walk para dar um passo
+    def __init__(self, alpha, theta, ponto):
+        self.alpha = alpha
+        self.theta = theta
+        self.ponto = ponto
+        theta = numpy.random.uniform(1) * 2 * numpy.pi
+        f=numpy.random.uniform(1)^(-1 / alpha)
+        ponto.x = ponto.x + f * numpy.cos(theta)
+        ponto.y = ponto.y + f * numpy.sin(theta)
+
+class Gravitacional:
+    def __init__(self):
+        pass
+
+class Encontro:
+    def __init__(self, ponto_1, ponto_2, canal_1, canal_2):
+        self.transmissao = None
+        self.ponto_1 = ponto_1
+        self.ponto_2 = ponto_2
+        self.canal_1 = canal_1
+        self.canal_2 = canal_2
+        ponto_1.hist_de_encontro.append(self) # atualiza a lista de encontros
+        ponto_2.hist_de_encontro.append(self) # atualiza a lista de encontros
+
+class Canal: #Isso representa um canal SOMENTE
+    def __init__(self, id, taxa):
+        self.id = id
+        self.taxa = taxa
+
+
+class Transmissao:
+    def __index__(self, quadro, ponto_tx, ponto_rx):
+        self.bytes_tx = None
+        self.quadro = quadro
+        self.ponto_tx = ponto_tx
+        self.ponto_rx = ponto_rx
+        ponto_tx.lista_transmissao.append(self)
+
+
+class Quadro:
+    def __init__(self, bytes, origem, destino):
+        self.bytes = bytes
+        self.origem = origem
+        self.destino = destino
+
+
+
+def Ajuste_ponto (ponto):
+# procedimento para fazer a reflexão do ponto quando ele sai da área limitada x[-1,1]
+    if ponto.x > 1:
+       ponto.x = 2 - ponto.x
+    if ponto.x < -1:
+       ponto.x = -2 - ponto.x
+        # procedimento para fazer a reflexão do ponto quando ele sai da área limitada y[-1,1]
+    if ponto.y > 1:
+       ponto.y = 2 - ponto.y
+    if ponto.y < -1:
+       ponto.y = -2 - ponto.y
+
+
+def Okumura_Hata_Model(T_x, R_x, h_t, h_r, freq, zona, tam_cidade):  # Modelo de Okumura-Hata
+    # freq - frequência [150, 1500] MHz
+    # T_x - Potência em dBm do transmissor: Antena <30 dBm | Dispositivo: < 23 dBm
+    # R_x - Potência em dBm do receptor: Antena -75 dBm | Dispositivo: < -25 dBm
+    # h_t - Altura do transmissor [30, 200] m
+    # h_r - Altura do receptor [1,10] m
+    # zona - Urbana, Suburbana e Aberta (0,1,2)
+    # tam_cidade - pequenas ou média, grandes (0,1)
+    # a(h_r) # fator de correção para a altura da antena móvel
+
+    if zona == 0 and tam_cidade == 0:
+        ah_r = (1.11 * math.log(freq, 10) - 0.7) * h_r - (1.56 * math.log(freq, 10) - 0.8)
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r) / (
+                    44.9 - 6.55 * h_t)))
+        return raio
+    elif zona == 0 and tam_cidade == 1:
+        ah_r = 3.2*math.log(1.54*h_r,10)**2-4.97
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r) / (
+                    44.9 - 6.55 * h_t)))
+        return raio
+    elif zona == 1 and tam_cidade ==0:
+        ah_r = (1.11 * math.log(freq, 10) - 0.7) * h_r - (1.56 * math.log(freq, 10) - 0.8)
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r + 2*(math.log(freq/28,10))**2-5.4) / (
+                44.9 - 6.55 * h_t)))
+        return raio
+    elif zona == 1 and tam_cidade ==1:
+        ah_r = 3.2*math.log(1.54*h_r,10)**2-4.97
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r + 2*(math.log(freq/28,10))**2-5.4) / (
+                44.9 - 6.55 * h_t)))
+        return raio
+    elif zona == 2 and tam_cidade ==0:
+        ah_r = (1.11 * math.log(freq, 10) - 0.7) * h_r - (1.56 * math.log(freq, 10) - 0.8)
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r+4.78*(math.log(freq, 10))**2+18.33*math.log(freq, 10)-40.94) / (
+                    44.9 - 6.55 * h_t)))
+        return raio
+    elif zona == 2 and tam_cidade ==1:
+        ah_r = 3.2*math.log(1.54*h_r,10)**2-4.97
+        raio = (10 ** ((T_x - R_x - 69.55 + 26.26 - math.log(freq, 10) + 13.82 * math.log(h_t, 10) + ah_r+4.78*(math.log(freq, 10))**2+18.33*math.log(freq, 10)-40.94) / (
+                    44.9 - 6.55 * h_t)))
+        return raio
+
+def Cost_321_Model(T_x, R_x, h_te, h_re, freq, C_M, tam_cidade): # Modelo de Hata ou COST-231, válido para distâncias de 1 km ou seja: d > 1km
+    # freq - frequência [1500, 2000] MHz
+    # T_x - Potência em dBm do transmissor: Antena <30 dBm | Dispositivo: < 23 dBm
+    # R_x - Potência em dBm do receptor: Antena -75 dBm | Dispositivo: < -25 dBm
+    # h_te - Altura do transmissor [30, 200] m
+    # h_re - Altura do receptor [1,10] m
+    # C_M - cidades médias e áreas urbanas, centros metropolitanos(0,1)
+    # tam_cidade - pequenas ou média, grandes (0,1)
+    # a(h_re) # fator de correção para a altura da antena móvel
+
+    if tam_cidade == 0:
+        ah_re = (1.11 * math.log(freq, 10) - 0.7) * h_re - (1.56 * math.log(freq, 10) - 0.8)
+        raio = 10**((T_x - R_x - 46.3 - 33.9*math.log(freq, 10)+13.82*math.log(h_te,10) + ah_re)-C_M/(4.9 - 6.558*math.log(h_te, 10)))
+        return raio
+
+    elif tam_cidade == 1:
+        ah_re = 3.2*math.log(1.54*h_re,10)**2-4.97
+        raio = 10**((T_x - R_x - 46.3 - 33.9*math.log(freq, 10)+13.82*math.log(h_te,10) + ah_re)-C_M/(4.9 - 6.558*math.log(h_te, 10)))
+        return raio
+
+# ----------------------------------------------------------------------------------------------------------------
+# $$ ( PARÂMETROS ) $$
+# ----------------------------------------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------------------------------------------
+# código principal - Passos:
